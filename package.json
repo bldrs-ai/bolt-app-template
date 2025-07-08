@@ -24,7 +24,7 @@
   "scripts": {
     "clean": "shx rm -rf dist/* dist",
     "build-tsc": "yarn tsc --build",
-    "build": "yarn build-tsc && yarn esbuild --bundle src/index.ts --outdir=build && shx cp -r node_modules/@bldrs-ai/conway/compiled/dist/* build/",
+    "build": "yarn build-tsc && yarn esbuild --bundle src/index.ts --outdir=build && shx cp -r node_modules/@bldrs-ai/conway/compiled/Dist/* build/",
     "serve": "yarn http-server"
   }
 }
