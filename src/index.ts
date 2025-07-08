@@ -20,13 +20,13 @@ class ModernIFCViewer {
     private isModelLoaded = false
 
     // DOM elements
-    private welcomeScreen: HTMLElement
-    private viewerContainer: HTMLElement
-    private controlsPanel: HTMLElement
-    private loadingOverlay: HTMLElement
-    private dropOverlay: HTMLElement
-    private loadModelInput: HTMLInputElement
-    private loadEnvInput: HTMLInputElement
+    private welcomeScreen!: HTMLElement
+    private viewerContainer!: HTMLElement
+    private controlsPanel!: HTMLElement
+    private loadingOverlay!: HTMLElement
+    private dropOverlay!: HTMLElement
+    private loadModelInput!: HTMLInputElement
+    private loadEnvInput!: HTMLInputElement
 
     constructor() {
         this.welcomeScreen = document.getElementById('welcomeScreen')!
