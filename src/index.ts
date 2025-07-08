@@ -211,12 +211,7 @@ class ModernIFCViewer {
             this.loadingManager.setProgress(25)
             
             const buffer = await file.arrayBuffer()
-            
-            this.loadingManager.updateMessage('Rendering model...')
-            this.loadingManager.setProgress(50)
-            
-            const buffer = await file.arrayBuffer()
-            
+                        
             await this.sceneManager.loadModel(buffer)
             
             this.loadingManager.setProgress(100)
