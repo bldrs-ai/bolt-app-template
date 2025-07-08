@@ -2,22 +2,19 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
-		<title>Conway viewer example (drag and drop).</title>
-		<style>
+		<title>Bolt App Template (drag and drop).</title>
+		<style type="text/css">
 			body { margin: 0; }
 		</style>
-  <script type="importmap">
+    <script type="importmap">
     {
-        "imports": {
-            "three": "/node_modules/three/build/three.module.js",
-            "three/": "/node_modules/three/"
-        }
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/": "/node_modules/three/"
+      }
     }
-  </script>
-
-		<script type="module">
-      import * as loaded from './compiled/src/index.js'
     </script>
+		<script type="module" src="./build/index.js"></script>
 	</head>
 	<body>
     <input id="loadModel" type="file" style="visibility:hidden" />
