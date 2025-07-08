@@ -1,11 +1,12 @@
-# Conway Viewer Demo
+# Bolt App Template
 
-This project demonstrates the usage of the `@bldrs-ai/conway` viewer component, built with Three.js. It provides a simple web interface to load 3D models and High Dynamic Range (HDR) environment maps, allowing users to interact with the scene and adjust rendering settings.
+This project demonstrates the usage of the `@bldrs-ai/conway` viewer component,
+built with Three.js. It provides a simple web interface to load 3D models,
+allowing users to interact with the scene and adjust rendering settings.
 
 ## Features
 
 *   Loads 3D models (including IFC and STEP formats) from user-selected files.
-*   Loads HDR environment maps (`.hdr`) for image-based lighting.
 *   Provides a GUI (using `lil-gui`) to control:
     *   Ambient Occlusion
     *   Ambient Light
@@ -54,7 +55,7 @@ yarn build
 Once the demo is running in your browser:
 
 1.  **Load Model:** Click the "Load Model" button in the GUI and select a 3D model file (e.g., IFC, STEP) from your computer. The viewer uses the `@bldrs-ai/conway` library's loading mechanism.
-2.  **Load Environment Map:** Click the "Load Environment Map" button and select an `.hdr` file to use for image-based lighting. Loading an environment map will automatically disable the default ambient light. A good source of free HDR based environments is [Poly Haven](https://polyhaven.com/hdris).
+2.  **Load Environment Map:** OPTIONAL (requires adding HDR maps to the data directory.  See [conway-viewer-demo repo](https://github.com/bldrs-ai/conway-viewer-demo)) Click the "Load Environment Map" button and select an `.hdr` file to use for image-based lighting. Loading an environment map will automatically disable the default ambient light. A good source of free HDR based environments is [Poly Haven](https://polyhaven.com/hdris).
 3.  **Adjust Settings:** Use the controls in the GUI to toggle features like Ambient Occlusion, Shadows, and Ambient Light, and to change the Shadow Quality.
 
 ## License
