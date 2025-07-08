@@ -16,6 +16,18 @@
       }
     }
     </script>
+    <script>
+        // Configure Emscripten module location for @bldrs-ai/conway WASM files
+        window.Module = {
+            locateFile: function(path, prefix) {
+                // Direct WASM and data files to the build directory
+                if (path.endsWith('.wasm') || path.endsWith('.data')) {
+                    return 'build/' + path;
+                }
+                return prefix + path;
+            }
+        };
+    </script>
 </head>
 <body>
     <!-- Hidden file inputs -->
