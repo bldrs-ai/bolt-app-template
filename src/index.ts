@@ -29,12 +29,6 @@ class ModernIFCViewer {
     private loadEnvInput: HTMLInputElement
 
     constructor() {
-        this.initializeElements()
-        this.setupEventListeners()
-        this.setupDragAndDrop()
-    }
-
-    private initializeElements(): void {
         this.welcomeScreen = document.getElementById('welcomeScreen')!
         this.viewerContainer = document.getElementById('viewerContainer')!
         this.controlsPanel = document.getElementById('controlsPanel')!
@@ -42,6 +36,8 @@ class ModernIFCViewer {
         this.dropOverlay = document.getElementById('dropOverlay')!
         this.loadModelInput = document.getElementById('loadModel') as HTMLInputElement
         this.loadEnvInput = document.getElementById('loadEnvironmentMap') as HTMLInputElement
+        this.setupEventListeners()
+        this.setupDragAndDrop()
     }
 
     private setupEventListeners(): void {
