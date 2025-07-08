@@ -2,6 +2,7 @@ import { SceneManager } from './viewer/scene-manager'
 import { NotificationManager } from './ui/notification-manager'
 import { ControlsManager } from './ui/controls-manager'
 import { LoadingManager } from './ui/loading-manager'
+import { MetadataPanel } from './ui/metadata-panel'
 import { FileValidator } from './utils/file-validator'
 import { PerformanceMonitor } from './utils/performance-monitor'
 
@@ -10,6 +11,7 @@ class ModernIFCViewer {
     private notificationManager: NotificationManager
     private controlsManager: ControlsManager
     private loadingManager: LoadingManager
+    private metadataPanel: MetadataPanel
     private performanceMonitor: PerformanceMonitor
     private isModelLoaded = false
 
@@ -27,6 +29,7 @@ class ModernIFCViewer {
         this.notificationManager = NotificationManager.getInstance()
         this.loadingManager = new LoadingManager()
         this.performanceMonitor = PerformanceMonitor.getInstance()
+        this.metadataPanel = new MetadataPanel()
         this.controlsManager = new ControlsManager(document.getElementById('controlsContent')!)
         
         this.setupEventListeners()
@@ -71,12 +74,42 @@ class ModernIFCViewer {
             this.controlsManager.toggle()
         })
 
+        // Add metadata button to header
+        this.addMetadataButton()
+
         // Window resize handler
         window.addEventListener('resize', this.handleResize.bind(this))
 
         // Prevent default drag behaviors on document
         document.addEventListener('dragover', (e) => e.preventDefault())
         document.addEventListener('drop', (e) => e.preventDefault())
+    }
+
+    private addMetadataButton(): void {
+        const headerActions = document.querySelector('.header-actions')!
+        
+        const metadataBtn = document.createElement('button')
+        metadataBtn.id = 'metadataBtn'
+        metadataBtn.className = 'btn btn-secondary'
+        metadataBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Metadata
+        `
+        metadataBtn.style.display = 'none' // Initially hidden
+        
+        metadataBtn.addEventListener('click', () => {
+            const metadata = this.sceneManager.getCurrentMetadata()
+            if (metadata) {
+                this.metadataPanel.toggle(metadata)
+            } else {
+                this.notificationManager.warning('No model metadata available')
+            }
+        })
+        
+        headerActions.insertBefore(metadataBtn, headerActions.firstChild)
     }
 
     private setupKeyboardShortcuts(): void {
@@ -94,6 +127,17 @@ class ModernIFCViewer {
                     this.loadEnvInput.click()
                 } else {
                     this.notificationManager.warning('Please load a model first')
+                }
+            }
+
+            // Ctrl/Cmd + I: Toggle metadata panel
+            if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+                e.preventDefault()
+                const metadata = this.sceneManager.getCurrentMetadata()
+                if (metadata) {
+                    this.metadataPanel.toggle(metadata)
+                } else {
+                    this.notificationManager.warning('No model metadata available')
                 }
             }
 
@@ -215,7 +259,7 @@ class ModernIFCViewer {
             this.loadingManager.updateMessage('Rendering model...')
             this.loadingManager.setProgress(50)
             
-            await this.sceneManager.loadModel(buffer)
+            await this.sceneManager.loadModel(file)
             
             this.loadingManager.setProgress(100)
             
@@ -227,6 +271,12 @@ class ModernIFCViewer {
             
             this.isModelLoaded = true
             this.showViewer()
+            
+            // Show metadata button
+            const metadataBtn = document.getElementById('metadataBtn')
+            if (metadataBtn) {
+                metadataBtn.style.display = 'inline-flex'
+            }
             
             this.notificationManager.success(
                 `Successfully loaded ${file.name} (${FileValidator.formatFileSize(file.size)}) in ${metrics.loadTime.toFixed(0)}ms`
@@ -336,11 +386,15 @@ class ModernIFCViewer {
                 throw new Error(`Failed to download model: ${response.statusText}`)
             }
             
+            this.performanceMonitor.startTiming()
+            
+            // Create a temporary file object for the URL loader
+            const response = await fetch(url)
             const buffer = await response.arrayBuffer()
             const filename = url.split('/').pop() || 'model'
+            const file = new File([buffer], filename)
             
-            this.performanceMonitor.startTiming()
-            await this.sceneManager.loadModel(buffer)
+            await this.sceneManager.loadModel(file)
             this.performanceMonitor.endTiming(filename, buffer.byteLength)
             
             this.isModelLoaded = true
