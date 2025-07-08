@@ -5,7 +5,7 @@ export interface FileValidationResult {
 }
 
 export class FileValidator {
-    private static readonly MODEL_EXTENSIONS = ['.ifc', '.step', '.stp', '.gltf', '.glb', '.obj']
+    private static readonly MODEL_EXTENSIONS = ['.ifc', '.step', '.stp']
     private static readonly HDR_EXTENSIONS = ['.hdr']
     private static readonly MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
@@ -43,25 +43,6 @@ export class FileValidator {
         return {
             isValid: true,
             fileType: extension?.substring(1).toUpperCase()
-        }
-    }
-
-    static getModelType(filename: string): 'ifc' | 'step' | 'gltf' | 'obj' | 'unknown' {
-        const extension = this.getFileExtension(filename)
-        
-        switch (extension) {
-            case 'ifc':
-                return 'ifc'
-            case 'step':
-            case 'stp':
-                return 'step'
-            case 'gltf':
-            case 'glb':
-                return 'gltf'
-            case 'obj':
-                return 'obj'
-            default:
-                return 'unknown'
         }
     }
 
