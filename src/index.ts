@@ -113,14 +113,14 @@ class ModernIFCViewer {
     private setupDragAndDrop(): void {
         let dragCounter = 0
 
-        const handleDragEnter = (e: DragEvent): void => {
+        const handleDragEnter = (e: Event): void => {
             e.preventDefault()
             e.stopPropagation()
             dragCounter++
             this.dropOverlay.style.display = 'flex'
         }
 
-        const handleDragLeave = (e: DragEvent): void => {
+        const handleDragLeave = (e: Event): void => {
             e.preventDefault()
             e.stopPropagation()
             dragCounter--
@@ -129,21 +129,21 @@ class ModernIFCViewer {
             }
         }
 
-        const handleDragOver = (e: DragEvent): void => {
+        const handleDragOver = (e: Event): void => {
             e.preventDefault()
             e.stopPropagation()
             // Add visual feedback
             this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.98)'
         }
 
-        const handleDrop = (e: DragEvent): void => {
+        const handleDrop = (e: Event): void => {
             e.preventDefault()
             e.stopPropagation()
             dragCounter = 0
             this.dropOverlay.style.display = 'none'
             this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.95)'
 
-            const files = e.dataTransfer?.files
+            const files = (e as DragEvent).dataTransfer?.files
             if (files && files.length > 0) {
                 this.handleDroppedFiles(files)
             }
