@@ -74,6 +74,12 @@ export class SceneManager {
             if (modelType === 'ifc' || modelType === 'step') {
                 // Use Conway loader for IFC and STEP files
                 const buffer = await file.arrayBuffer()
+                this.onLoad((scene, obj) => {
+                  // Center and scale the model
+                  this.centerAndScaleModel(obj)
+                })
+
+                console.log('Loading with Conway: ', file.name)
                 await this.scene.load(buffer)
                 
                 // Create basic metadata for Conway-loaded models
