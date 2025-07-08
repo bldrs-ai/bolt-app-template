@@ -113,28 +113,32 @@ class ModernIFCViewer {
     private setupDragAndDrop(): void {
         let dragCounter = 0
 
-        const handleDragEnter = (e: DragEvent) => {
+        const handleDragEnter = (e: DragEvent): void => {
             e.preventDefault()
+            e.stopPropagation()
             dragCounter++
             this.dropOverlay.style.display = 'flex'
         }
 
-        const handleDragLeave = (e: DragEvent) => {
+        const handleDragLeave = (e: DragEvent): void => {
             e.preventDefault()
+            e.stopPropagation()
             dragCounter--
             if (dragCounter === 0) {
                 this.dropOverlay.style.display = 'none'
             }
         }
 
-        const handleDragOver = (e: DragEvent) => {
+        const handleDragOver = (e: DragEvent): void => {
             e.preventDefault()
+            e.stopPropagation()
             // Add visual feedback
             this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.98)'
         }
 
-        const handleDrop = (e: DragEvent) => {
+        const handleDrop = (e: DragEvent): void => {
             e.preventDefault()
+            e.stopPropagation()
             dragCounter = 0
             this.dropOverlay.style.display = 'none'
             this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.95)'
@@ -145,11 +149,15 @@ class ModernIFCViewer {
             }
         }
 
-        // Add event listeners to document
-        document.addEventListener('dragenter', handleDragEnter)
-        document.addEventListener('dragleave', handleDragLeave)
-        document.addEventListener('dragover', handleDragOver)
-        document.addEventListener('drop', handleDrop)
+        // Add event listeners to document and body
+        const targets = [document, document.body, this.viewerContainer]
+        
+        targets.forEach(target => {
+            target.addEventListener('dragenter', handleDragEnter)
+            target.addEventListener('dragleave', handleDragLeave)
+            target.addEventListener('dragover', handleDragOver)
+            target.addEventListener('drop', handleDrop)
+        })
     }
 
     private async handleDroppedFiles(files: FileList): Promise<void> {
