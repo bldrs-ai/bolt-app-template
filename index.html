@@ -22,7 +22,7 @@
             locateFile: function(path, prefix) {
                 // Direct WASM and data files to the build directory
                 if (path.endsWith('.wasm') || path.endsWith('.data')) {
-                    return 'build/' + path;
+                    return 'build/static/js/' + path;
                 }
                 return prefix + path;
             }
