@@ -1,43 +1,46 @@
-import { initViewer } from '@bldrs-ai/conway/compiled/src/rendering/threejs/html_viewer.js'
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js'
-import { ShadowQuality, SimpleViewerScene } from '@bldrs-ai/conway/compiled/src/rendering/threejs/simple_viewer_scene.js'
-import SceneObject from '@bldrs-ai/conway/compiled/src/rendering/threejs/scene_object'
-import { versionString } from '@bldrs-ai/conway/compiled/src'
-
-interface ViewerScene {
-    ambientOcclusion: boolean
-    hasAmbientLight: boolean
-    shadowsEnabled: boolean
-    shadowQuality: ShadowQuality
-    load(buffer: ArrayBuffer): Promise<void>
-    loadEquirectangularEnvironmentMapHDR(url: string): Promise<void>
-    onload?: (scene: SimpleViewerScene, object: SceneObject) => void
-}
+import { SceneManager } from './viewer/scene-manager'
+import { NotificationManager } from './ui/notification-manager'
+import { ControlsManager } from './ui/controls-manager'
+import { LoadingManager } from './ui/loading-manager'
+import { FileValidator } from './utils/file-validator'
+import { PerformanceMonitor } from './utils/performance-monitor'
 
 class ModernIFCViewer {
-    private scene: ViewerScene | null = null
-    private gui: GUI | null = null
+    private sceneManager: SceneManager
+    private notificationManager: NotificationManager
+    private controlsManager: ControlsManager
+    private loadingManager: LoadingManager
+    private performanceMonitor: PerformanceMonitor
     private isModelLoaded = false
 
     // DOM elements
     private welcomeScreen!: HTMLElement
     private viewerContainer!: HTMLElement
     private controlsPanel!: HTMLElement
-    private loadingOverlay!: HTMLElement
     private dropOverlay!: HTMLElement
     private loadModelInput!: HTMLInputElement
     private loadEnvInput!: HTMLInputElement
 
     constructor() {
+        this.initializeDOMElements()
+        this.sceneManager = new SceneManager()
+        this.notificationManager = NotificationManager.getInstance()
+        this.loadingManager = new LoadingManager()
+        this.performanceMonitor = PerformanceMonitor.getInstance()
+        this.controlsManager = new ControlsManager(document.getElementById('controlsContent')!)
+        
+        this.setupEventListeners()
+        this.setupDragAndDrop()
+        this.setupKeyboardShortcuts()
+    }
+
+    private initializeDOMElements(): void {
         this.welcomeScreen = document.getElementById('welcomeScreen')!
         this.viewerContainer = document.getElementById('viewerContainer')!
         this.controlsPanel = document.getElementById('controlsPanel')!
-        this.loadingOverlay = document.getElementById('loadingOverlay')!
         this.dropOverlay = document.getElementById('dropOverlay')!
         this.loadModelInput = document.getElementById('loadModel') as HTMLInputElement
         this.loadEnvInput = document.getElementById('loadEnvironmentMap') as HTMLInputElement
-        this.setupEventListeners()
-        this.setupDragAndDrop()
     }
 
     private setupEventListeners(): void {
@@ -47,6 +50,10 @@ class ModernIFCViewer {
         })
 
         document.getElementById('loadEnvBtn')?.addEventListener('click', () => {
+            if (!this.isModelLoaded) {
+                this.notificationManager.warning('Please load a model first')
+                return
+            }
             this.loadEnvInput.click()
         })
 
@@ -60,7 +67,47 @@ class ModernIFCViewer {
         this.loadEnvInput.addEventListener('change', this.handleEnvironmentLoad.bind(this))
 
         // Controls panel toggle
-        document.getElementById('toggleControls')?.addEventListener('click', this.toggleControlsPanel.bind(this))
+        document.getElementById('toggleControls')?.addEventListener('click', () => {
+            this.controlsManager.toggle()
+        })
+
+        // Window resize handler
+        window.addEventListener('resize', this.handleResize.bind(this))
+
+        // Prevent default drag behaviors on document
+        document.addEventListener('dragover', (e) => e.preventDefault())
+        document.addEventListener('drop', (e) => e.preventDefault())
+    }
+
+    private setupKeyboardShortcuts(): void {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + O: Open file
+            if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+                e.preventDefault()
+                this.loadModelInput.click()
+            }
+
+            // Ctrl/Cmd + E: Load environment
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                e.preventDefault()
+                if (this.isModelLoaded) {
+                    this.loadEnvInput.click()
+                } else {
+                    this.notificationManager.warning('Please load a model first')
+                }
+            }
+
+            // Escape: Close any open dialogs or reset view
+            if (e.key === 'Escape') {
+                this.resetView()
+            }
+
+            // F11: Toggle fullscreen
+            if (e.key === 'F11') {
+                e.preventDefault()
+                this.toggleFullscreen()
+            }
+        })
     }
 
     private setupDragAndDrop(): void {
@@ -82,21 +129,19 @@ class ModernIFCViewer {
 
         const handleDragOver = (e: DragEvent) => {
             e.preventDefault()
+            // Add visual feedback
+            this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.98)'
         }
 
         const handleDrop = (e: DragEvent) => {
             e.preventDefault()
             dragCounter = 0
             this.dropOverlay.style.display = 'none'
+            this.dropOverlay.style.background = 'rgba(102, 126, 234, 0.95)'
 
             const files = e.dataTransfer?.files
             if (files && files.length > 0) {
-                const file = files[0]
-                if (this.isValidModelFile(file)) {
-                    this.loadModelFromFile(file)
-                } else {
-                    this.showNotification('Please drop a valid IFC, STEP, or STP file', 'error')
-                }
+                this.handleDroppedFiles(files)
             }
         }
 
@@ -107,10 +152,29 @@ class ModernIFCViewer {
         document.addEventListener('drop', handleDrop)
     }
 
-    private isValidModelFile(file: File): boolean {
-        const validExtensions = ['.ifc', '.step', '.stp']
-        const fileName = file.name.toLowerCase()
-        return validExtensions.some(ext => fileName.endsWith(ext))
+    private async handleDroppedFiles(files: FileList): Promise<void> {
+        const file = files[0]
+        
+        // Check if it's a model file
+        const modelValidation = FileValidator.validateModelFile(file)
+        if (modelValidation.isValid) {
+            await this.loadModelFromFile(file)
+            return
+        }
+
+        // Check if it's an HDR file
+        const hdrValidation = FileValidator.validateHDRFile(file)
+        if (hdrValidation.isValid) {
+            if (!this.isModelLoaded) {
+                this.notificationManager.warning('Please load a model before adding an environment map')
+                return
+            }
+            await this.loadEnvironmentFromFile(file)
+            return
+        }
+
+        // Neither valid file type
+        this.notificationManager.error('Please drop a valid IFC, STEP, STP, or HDR file')
     }
 
     private async handleModelLoad(): Promise<void> {
@@ -121,121 +185,103 @@ class ModernIFCViewer {
     }
 
     private async loadModelFromFile(file: File): Promise<void> {
-        try {
-            this.showLoading('Loading model...')
-            
-            if (!this.scene) {
-                await this.initializeViewer()
-            }
+        const validation = FileValidator.validateModelFile(file)
+        if (!validation.isValid) {
+            this.notificationManager.error(validation.error!)
+            return
+        }
 
+        try {
+            this.loadingManager.show(`Loading ${file.name}...`)
+            this.performanceMonitor.startTiming()
+            
+            // Initialize viewer if not already done
+            const scene = await this.sceneManager.initialize()
+            
+            // Load the model
+            this.loadingManager.updateMessage('Processing model data...')
+            this.loadingManager.setProgress(25)
+            
             const buffer = await file.arrayBuffer()
-            await this.scene!.load(buffer)
+            
+            this.loadingManager.updateMessage('Rendering model...')
+            this.loadingManager.setProgress(50)
+            
+            await this.sceneManager.loadModel(buffer)
+            
+            this.loadingManager.setProgress(100)
+            
+            // Record performance metrics
+            const metrics = this.performanceMonitor.endTiming(file.name, file.size)
+            
+            // Initialize controls
+            this.controlsManager.initialize(scene)
             
             this.isModelLoaded = true
             this.showViewer()
-            this.showNotification(`Successfully loaded ${file.name}`, 'success')
+            
+            this.notificationManager.success(
+                `Successfully loaded ${file.name} (${FileValidator.formatFileSize(file.size)}) in ${metrics.loadTime.toFixed(0)}ms`
+            )
             
         } catch (error) {
             console.error('Error loading model:', error)
-            this.showNotification('Failed to load model. Please check the file format.', 'error')
+            this.notificationManager.error(
+                error instanceof Error ? error.message : 'Failed to load model. Please check the file format.'
+            )
         } finally {
-            this.hideLoading()
+            this.loadingManager.hide()
         }
     }
 
     private async handleEnvironmentLoad(): Promise<void> {
-        if (!this.scene) {
-            this.showNotification('Please load a model first', 'warning')
+        if (this.loadEnvInput.files && this.loadEnvInput.files.length > 0) {
+            const file = this.loadEnvInput.files[0]
+            await this.loadEnvironmentFromFile(file)
+        }
+    }
+
+    private async loadEnvironmentFromFile(file: File): Promise<void> {
+        const validation = FileValidator.validateHDRFile(file)
+        if (!validation.isValid) {
+            this.notificationManager.error(validation.error!)
             return
         }
 
-        if (this.loadEnvInput.files && this.loadEnvInput.files.length > 0) {
-            try {
-                this.showLoading('Loading environment map...')
-                
-                const file = this.loadEnvInput.files[0]
-                const fileReader = new FileReader()
+        if (!this.isModelLoaded) {
+            this.notificationManager.warning('Please load a model first')
+            return
+        }
 
-                fileReader.onload = async () => {
-                    try {
-                        await this.scene!.loadEquirectangularEnvironmentMapHDR(fileReader.result as string)
-                        this.scene!.hasAmbientLight = false
-                        this.updateGUI()
-                        this.showNotification('Environment map loaded successfully', 'success')
-                    } catch (error) {
-                        console.error('Error loading environment map:', error)
-                        this.showNotification('Failed to load environment map', 'error')
-                    } finally {
-                        this.hideLoading()
-                    }
+        try {
+            this.loadingManager.show('Loading environment map...')
+            
+            const fileReader = new FileReader()
+            
+            fileReader.onload = async () => {
+                try {
+                    await this.sceneManager.loadEnvironmentMap(fileReader.result as string)
+                    this.controlsManager.updateDisplay()
+                    this.notificationManager.success(`Environment map "${file.name}" loaded successfully`)
+                } catch (error) {
+                    console.error('Error loading environment map:', error)
+                    this.notificationManager.error('Failed to load environment map')
+                } finally {
+                    this.loadingManager.hide()
                 }
-
-                fileReader.readAsDataURL(file)
-            } catch (error) {
-                console.error('Error reading environment file:', error)
-                this.showNotification('Failed to read environment file', 'error')
-                this.hideLoading()
             }
-        }
-    }
 
-    private async initializeViewer(): Promise<void> {
-        // Initialize the Conway viewer
-        this.scene = initViewer() as ViewerScene
-        this.scene.hasAmbientLight = true
+            fileReader.onerror = () => {
+                this.notificationManager.error('Failed to read environment file')
+                this.loadingManager.hide()
+            }
 
-        // Setup GUI
-        this.setupGUI()
-
-        console.log('Conway viewer initialized')
-    }
-
-    private setupGUI(): void {
-        if (!this.scene) return
-
-        const controlsContent = document.getElementById('controlsContent')!
-        
-        // Create GUI container
-        const guiContainer = document.createElement('div')
-        controlsContent.appendChild(guiContainer)
-
-        this.gui = new GUI({ container: guiContainer })
-
-        // Add version info
-        const versionInfo = { version: versionString.substring(versionString.indexOf('v')) }
-        const versionController = this.gui.add(versionInfo, 'version').name('Conway Version').disable()
-        versionController.domElement.classList.remove('disabled')
-        versionController.domElement.style.color = '#667eea'
-        versionController.$input.style.color = '#667eea'
-        versionController.$input.style.fontWeight = '600'
-
-        // Add rendering controls
-        this.gui.add(this.scene, 'ambientOcclusion').name('Ambient Occlusion')
-        this.gui.add(this.scene, 'hasAmbientLight').name('Ambient Light')
-        this.gui.add(this.scene, 'shadowsEnabled').name('Shadows')
-        this.gui.add(this.scene, 'shadowQuality', {
-            Low: ShadowQuality.LOW,
-            Medium: ShadowQuality.MEDIUM,
-            High: ShadowQuality.HIGH
-        }).name('Shadow Quality')
-
-        // Add action buttons
-        const actions = {
-            loadModel: () => this.loadModelInput.click(),
-            loadEnvironment: () => this.loadEnvInput.click(),
-            resetView: () => this.resetView()
-        }
-
-        this.gui.add(actions, 'loadModel').name('📁 Load Model')
-        this.gui.add(actions, 'loadEnvironment').name('🌅 Load Environment')
-        this.gui.add(actions, 'resetView').name('🔄 Reset View')
-    }
-
-    private updateGUI(): void {
-        if (this.gui) {
-            this.gui.controllersRecursive().forEach(controller => {
-                controller.updateDisplay()
-            })
+            fileReader.readAsDataURL(file)
+            
+        } catch (error) {
+            console.error('Error reading environment file:', error)
+            this.notificationManager.error('Failed to read environment file')
+            this.loadingManager.hide()
         }
     }
 
@@ -243,96 +289,94 @@ class ModernIFCViewer {
         this.welcomeScreen.style.display = 'none'
         this.viewerContainer.style.display = 'block'
         this.controlsPanel.style.display = 'block'
-    }
-
-    private showLoading(message: string = 'Loading...'): void {
-        const loadingText = this.loadingOverlay.querySelector('.loading-text') as HTMLElement
-        loadingText.textContent = message
-        this.loadingOverlay.style.display = 'flex'
-    }
-
-    private hideLoading(): void {
-        this.loadingOverlay.style.display = 'none'
-    }
-
-    private toggleControlsPanel(): void {
-        const content = document.getElementById('controlsContent')!
-        const toggleBtn = document.getElementById('toggleControls')!
-        const isCollapsed = content.style.display === 'none'
-
-        if (isCollapsed) {
-            content.style.display = 'block'
-            toggleBtn.innerHTML = `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <polyline points="18,15 12,9 6,15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            `
-        } else {
-            content.style.display = 'none'
-            toggleBtn.innerHTML = `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <polyline points="6,9 12,15 18,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            `
-        }
+        
+        // Trigger resize to ensure proper canvas sizing
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'))
+        }, 100)
     }
 
     private resetView(): void {
-        // This would reset the camera view - implementation depends on Conway API
-        this.showNotification('View reset', 'info')
+        this.sceneManager.resetView()
+        this.notificationManager.info('View reset')
     }
 
-    private showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info'): void {
-        // Create notification element
-        const notification = document.createElement('div')
-        notification.className = `notification notification-${type}`
-        notification.textContent = message
+    private handleResize(): void {
+        // Handle window resize - the Conway viewer should handle this automatically
+        // but we can add any additional resize logic here
+    }
 
-        // Add styles
-        Object.assign(notification.style, {
-            position: 'fixed',
-            top: '80px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            color: 'white',
-            fontWeight: '500',
-            zIndex: '2000',
-            opacity: '0',
-            transition: 'all 0.3s ease',
-            pointerEvents: 'none'
-        })
-
-        // Set background color based on type
-        const colors = {
-            success: '#48bb78',
-            error: '#f56565',
-            warning: '#ed8936',
-            info: '#667eea'
+    private toggleFullscreen(): void {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {
+                this.notificationManager.error('Failed to enter fullscreen mode')
+            })
+        } else {
+            document.exitFullscreen().catch(() => {
+                this.notificationManager.error('Failed to exit fullscreen mode')
+            })
         }
-        notification.style.background = colors[type]
+    }
 
-        document.body.appendChild(notification)
+    // Public API methods
+    public async loadModelFromUrl(url: string): Promise<void> {
+        try {
+            this.loadingManager.show('Downloading model...')
+            
+            const response = await fetch(url)
+            if (!response.ok) {
+                throw new Error(`Failed to download model: ${response.statusText}`)
+            }
+            
+            const buffer = await response.arrayBuffer()
+            const filename = url.split('/').pop() || 'model'
+            
+            this.performanceMonitor.startTiming()
+            await this.sceneManager.loadModel(buffer)
+            this.performanceMonitor.endTiming(filename, buffer.byteLength)
+            
+            this.isModelLoaded = true
+            this.showViewer()
+            
+            this.notificationManager.success(`Model loaded from URL: ${filename}`)
+            
+        } catch (error) {
+            console.error('Error loading model from URL:', error)
+            this.notificationManager.error('Failed to load model from URL')
+        } finally {
+            this.loadingManager.hide()
+        }
+    }
 
-        // Animate in
-        requestAnimationFrame(() => {
-            notification.style.opacity = '1'
-            notification.style.transform = 'translateX(-50%) translateY(0)'
-        })
+    public exportPerformanceMetrics(): void {
+        this.performanceMonitor.exportMetrics()
+    }
 
-        // Remove after delay
-        setTimeout(() => {
-            notification.style.opacity = '0'
-            notification.style.transform = 'translateX(-50%) translateY(-20px)'
-            setTimeout(() => {
-                document.body.removeChild(notification)
-            }, 300)
-        }, 3000)
+    public getLoadedModelInfo(): { isLoaded: boolean; metrics?: any } {
+        return {
+            isLoaded: this.isModelLoaded,
+            metrics: this.isModelLoaded ? this.performanceMonitor.getMetrics() : undefined
+        }
     }
 }
 
 // Initialize the application when the page loads
 window.addEventListener('load', () => {
-    new ModernIFCViewer()
+    const viewer = new ModernIFCViewer()
+    
+    // Expose viewer to global scope for debugging
+    ;(window as any).ifcViewer = viewer
+    
+    console.log('Modern IFC Viewer initialized successfully')
+})
+
+// Handle unhandled errors
+window.addEventListener('error', (event) => {
+    console.error('Unhandled error:', event.error)
+    NotificationManager.getInstance().error('An unexpected error occurred')
+})
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason)
+    NotificationManager.getInstance().error('An unexpected error occurred')
 })

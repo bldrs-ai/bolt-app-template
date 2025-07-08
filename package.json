@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@bldrs-ai/conway": "0.22.952",
-    "shx": "0.4.0"
+    "lil-gui": "^0.20.0",
+    "shx": "0.4.0",
+    "three": "^0.178.0"
   },
   "devDependencies": {
     "@types/three": "^0.178.0",

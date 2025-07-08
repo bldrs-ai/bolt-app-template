@@ -360,6 +360,80 @@ body {
     transform: translateY(-1px) !important;
 }
 
+.lil-gui .folder > .title {
+    background: rgba(102, 126, 234, 0.1) !important;
+    color: #667eea !important;
+    font-weight: 600 !important;
+    border-radius: 6px !important;
+    margin-bottom: 8px !important;
+}
+
+.lil-gui .folder > .title:hover {
+    background: rgba(102, 126, 234, 0.2) !important;
+}
+
+/* Progress bar styles */
+.progress-bar {
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #667eea, #764ba2) !important;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+/* Notification container */
+.notification-container {
+    pointer-events: none;
+}
+
+.notification {
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Enhanced drop overlay */
+.drop-overlay {
+    backdrop-filter: blur(10px);
+}
+
+.drop-content {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* Scrollbar styling */
+.controls-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.controls-content::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.controls-content::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 3px;
+}
+
+.controls-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+}
+
+/* Loading animation enhancement */
+.loading-spinner {
+    background: conic-gradient(from 0deg, transparent, white, transparent);
+    border: none;
+    mask: radial-gradient(circle at center, transparent 15px, black 16px);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .header {
